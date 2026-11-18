@@ -1,4 +1,4 @@
-name: 1.3.3 Р’С‹РІРѕРґ СЃРѕСЃС‚РѕСЏРЅРёСЏ СЃРІРµС‚РѕРґРёРѕРґР°
+﻿name: 1.3.5 LED Module
 
 on:
   push:
@@ -6,10 +6,6 @@ on:
       - '134-led-module/**'
       - '.github/workflows/check-1-3-5.yml'
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   check:
