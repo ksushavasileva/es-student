@@ -6,6 +6,8 @@
 #define CHARGE_PIN 22
 
 #include "hardware/adc.h"
+#include "hardware/dma.h"
+#include "hardware/irq.h"
 
 // Вход АЦП: вывод GP26, канал 0.
 #define ADC_PIN 26
@@ -22,6 +24,76 @@
 
 #define LED_PIN PICO_DEFAULT_LED_PIN
 #define BUTTON_PIN 15
+
+// One-block DMA capture. DMA completion is the only per-block IRQ.
+typedef enum { ADC_FREE, ADC_CAPTURE, ADC_BLOCK } adc_user_t;
+static volatile adc_user_t adc_user = ADC_FREE;
+
+#define ADC_CLOCK_HZ 48000000.0f
+static int block_channel = -1;
+static uint16_t block_samples[PLATFORM_BLOCK_MAX];
+static uint32_t block_start_us;
+static volatile uint32_t block_end_us;
+static volatile bool block_ready;
+
+static void adc_free_running(void)
+{
+    adc_select_input(ADC_CHANNEL);
+    adc_fifo_setup(true, true, 1, false, false);
+    adc_set_clkdiv(ADC_CLOCK_HZ / PLATFORM_SAMPLE_RATE_HZ - 1);
+}
+
+static void adc_one_shot(void)
+{
+    adc_run(false);
+    adc_fifo_drain();
+    adc_fifo_setup(false, false, 0, false, false);
+    adc_set_clkdiv(0);
+}
+
+static void on_block_done(void)
+{
+    dma_channel_acknowledge_irq1(block_channel);
+    block_end_us = time_us_32();
+    adc_one_shot();
+    block_ready = true;
+    adc_user = ADC_FREE;
+}
+
+bool platform_block_start(uint32_t count)
+{
+    if (adc_user != ADC_FREE || count == 0 || count > PLATFORM_BLOCK_MAX)
+        return false;
+
+    adc_free_running();
+    dma_channel_config cfg = dma_channel_get_default_config(block_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, true);
+    channel_config_set_dreq(&cfg, DREQ_ADC);
+
+    block_ready = false;
+    adc_user = ADC_BLOCK;
+    dma_channel_configure(block_channel, &cfg, block_samples, &adc_hw->fifo, count, true);
+    block_start_us = time_us_32();
+    adc_run(true);
+    return true;
+}
+
+bool platform_block_done(void)
+{
+    return block_ready;
+}
+
+const uint16_t *platform_block_samples(void)
+{
+    return block_samples;
+}
+
+uint32_t platform_block_time_us(void)
+{
+    return block_end_us - block_start_us;
+}
 
 void platform_init(void)
 {
@@ -44,6 +116,12 @@ void platform_init(void)
     gpio_init(CHARGE_PIN);
     gpio_put(CHARGE_PIN, false);
     gpio_set_dir(CHARGE_PIN, GPIO_OUT);
+
+    // IRQ 1 is dedicated to completed ADC DMA blocks.
+    block_channel = dma_claim_unused_channel(true);
+    dma_channel_set_irq1_enabled(block_channel, true);
+    irq_set_exclusive_handler(DMA_IRQ_1, on_block_done);
+    irq_set_enabled(DMA_IRQ_1, true);
 }
 
 void platform_led_set(bool on)
@@ -123,8 +201,7 @@ uint32_t platform_blink_stop(void)
 }
 
 // The timer callback only samples ADC; USB output is forbidden in IRQ context.
-typedef enum { ADC_FREE, ADC_CAPTURE } adc_user_t;
-static volatile adc_user_t adc_user = ADC_FREE;
+
 static repeating_timer_t capture_timer;
 static uint16_t capture_samples[PLATFORM_CAPTURE_MAX];
 static uint32_t capture_times[PLATFORM_CAPTURE_MAX];

@@ -1,5 +1,6 @@
 #include "api/api.h"
 #include "telemetry-task/telemetry-task.h"
+#include "block-task/block-task.h"
 #include "platform/platform.h"
 #include "api/api-commands.h"
 
@@ -258,6 +259,46 @@ static void cmd_button(const command_t *command)
 // РўР°Р±Р»РёС†Р° РєРѕРјР°РЅРґ
 
 // Измеряем напряжение через platform; SDK в логике не используется.
+// Print the completed block outside IRQ; keep the block-task SDK-free.
+static void print_dma_cap(const uint16_t *samples, uint32_t count, uint32_t time_us)
+{
+    if (count == 0) return;
+    uint16_t min_code = UINT16_MAX;
+    uint16_t max_code = 0;
+    uint64_t sum = 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        uint16_t sample = samples[i];
+        if (sample < min_code) min_code = sample;
+        if (sample > max_code) max_code = sample;
+        sum += sample;
+    }
+    uint32_t expected_us = (uint32_t)(((uint64_t)count * 1000000ULL) /
+                                       PLATFORM_SAMPLE_RATE_HZ);
+    printf("dma_cap: %u samples in %u us, expected %u us, min %u max %u mean %.1f\n",
+           (unsigned)count, (unsigned)time_us, (unsigned)expected_us,
+           (unsigned)min_code, (unsigned)max_code,
+           (double)((float)sum / (float)count));
+}
+
+static void cmd_dma_cap(const command_t *command)
+{
+    uint32_t count = 0;
+    if (command->argc != 1 || !parse_u32(command->argv[0], &count)) {
+        printf("error: usage dma_cap <N>\n");
+        return;
+    }
+    if (count == 0 || count > PLATFORM_BLOCK_MAX) {
+        printf("error: N must be 1..8192\n");
+        return;
+    }
+    if (telemetry_task_get_state() == TELEMETRY_STATE_RUN ||
+        !block_task_start(count, print_dma_cap)) {
+        printf("error: adc busy\n");
+        return;
+    }
+    // Result is printed later, once DMA IRQ indicates that the block is ready.
+}
+
 static void cmd_cap_start(const command_t *command)
 {
     uint32_t count = 0;
@@ -430,6 +471,7 @@ static void cmd_timer_blink_stop(const command_t *command)
 
 const api_command_t api_commands[] =
 {
+    { "dma_cap", "capture ADC block via DMA: dma_cap <N>", cmd_dma_cap },
     { "cap_start", "capture ADC: cap_start <N> <period_us>", cmd_cap_start },
     { "cap_dump", "dump last ADC timer capture", cmd_cap_dump },
     { "timer_blink_start", "blink led by timer: timer_blink_start <period_ms>", cmd_timer_blink_start },

@@ -37,3 +37,11 @@ typedef struct {
     float handler_percent;
 } platform_capture_t;
 void platform_capture_get(platform_capture_t *capture);
+
+// Block sampling at 44.1 kHz: ADC FIFO is serviced by DMA, not the CPU.
+#define PLATFORM_SAMPLE_RATE_HZ 44100
+#define PLATFORM_BLOCK_MAX 8192
+bool platform_block_start(uint32_t count);
+bool platform_block_done(void);
+const uint16_t *platform_block_samples(void);
+uint32_t platform_block_time_us(void);
