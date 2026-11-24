@@ -98,8 +98,8 @@ def rc_plan(tau):
     # около ста отсчётов на τ, но не чаще, чем умеет прибор
     period_ms = max(10, round(tau * 10))
     # полсекунды покоя, 5τ заряда, 5τ разряда и полсекунды в запас
-    actions = [(0.5, "charge_on"), (0.5 + 5 * tau, "charge_off")]
-    return period_ms, actions, 1 + 10 * tau
+    actions = [(0.5, "charge_on"), (0.5 + 6 * tau, "charge_off")]
+    return period_ms, actions, 1 + 12 * tau
 
 
 def crossing(voltages, start, level, rising):
@@ -116,12 +116,31 @@ def measure_tau(times, voltages):
     peak = voltages.index(top)
     result = {"top": top}
     # заряд: от начала подъёма (2 % вершины) до 63 % вершины
-    start = crossing(voltages, 0, 0.02 * top, True)
+    start = crossing(voltages, 0, 0.10 * top, True)
     end = crossing(voltages, start, 0.632 * top, True) if start is not None else None
     if end is not None and end <= peak:
-        result["charge"] = (times[start], times[end], voltages[end])
+        import math
+        tau_charge = (times[end] - times[start]) / math.log(0.9 / 0.368)
+        result["charge"] = (times[end] - tau_charge, times[end], voltages[end])
     # разряд: от начала спада (98 % вершины) до 37 % вершины
-    start = crossing(voltages, peak, 0.98 * top, False)
+    dt = max(0.001, (times[-1] - times[0]) / max(1, len(times) - 1))
+    half_window = max(3, round(0.06 / dt))
+    candidates = range(
+        peak + half_window,
+        len(times) - half_window
+    )
+
+    if candidates:
+        falling = max(
+            candidates,
+            key=lambda i: (
+                (voltages[i - half_window] - voltages[i + half_window]) /
+                max(0.001, times[i + half_window] - times[i - half_window])
+            )
+        )
+        start = max(peak, falling - half_window)
+    else:
+        start = None
     end = crossing(voltages, start, 0.368 * top, False) if start is not None else None
     if end is not None:
         result["discharge"] = (times[start], times[end], voltages[end])
@@ -173,7 +192,8 @@ def analyze_rc(csv_name, r_kohm, c_uf):
     ax.grid(True)
     ax.legend(loc="upper right")
     fig.tight_layout()
-    fig.savefig("rc.png")
+    fig.savefig("rc_new.png")
+    plt.close(fig)
     print("График сохранён в rc.png")
 
     with open("rc.log", "w", encoding="utf-8") as f:
