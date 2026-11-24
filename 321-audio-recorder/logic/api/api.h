@@ -1,3 +1,4 @@
+#include "stream-task/stream-task.h"
 
 #pragma once
 
@@ -9,3 +10,6 @@ void api_handle(const command_t *command);
 
 // Print one telemetry record as a text-protocol line.
 void api_print_telemetry(const telemetry_record_t *record);
+
+// Raw stream-frame writer, called from stream-task via main.c.
+void api_send_frame(const stream_header_t *header, const uint8_t *data, uint32_t bytes);

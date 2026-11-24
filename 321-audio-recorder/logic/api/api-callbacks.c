@@ -1,6 +1,7 @@
 #include "api/api.h"
 #include "telemetry-task/telemetry-task.h"
 #include "block-task/block-task.h"
+#include "stream-task/stream-task.h"
 #include "platform/platform.h"
 #include "api/api-commands.h"
 
@@ -469,8 +470,50 @@ static void cmd_timer_blink_stop(const command_t *command)
     printf("timer_blink: stopped, %u toggles\n", (unsigned)toggles);
 }
 
+#define STREAM_BLINK_PERIOD_MS 250
+
+void api_send_frame(const stream_header_t *header, const uint8_t *data, uint32_t bytes)
+{
+    platform_write(header, sizeof(*header));
+    platform_write(data, bytes);
+}
+
+static void cmd_stream_start(const command_t *command)
+{
+    uint32_t bits = 16;
+    if (command->argc > 1 ||
+        (command->argc == 1 && !parse_u32(command->argv[0], &bits)) ||
+        (bits != 16 && bits != 8)) {
+        printf("error: usage stream_start [8|16]\n");
+        return;
+    }
+    if (telemetry_task_get_state() == TELEMETRY_STATE_RUN ||
+        !stream_task_start((uint8_t)bits)) {
+        printf("error: adc busy\n");
+        return;
+    }
+    led_task_set_state(LED_STATE_OFF);
+    platform_blink_start(STREAM_BLINK_PERIOD_MS);
+    printf("stream: started, 44100 Hz, %u bit\n", (unsigned)bits);
+}
+
+static void cmd_stream_stop(const command_t *command)
+{
+    (void)command;
+    if (stream_task_get_state() == STREAM_STATE_RUN) {
+        stream_task_stop();
+        platform_blink_stop();
+    }
+    printf("stream: stopped, %u frames, %u samples, %u overruns\n",
+           (unsigned)stream_task_get_frames(),
+           (unsigned)stream_task_get_samples(),
+           (unsigned)stream_task_get_overruns());
+}
+
 const api_command_t api_commands[] =
 {
+    { "stream_start", "start raw ADC streaming: stream_start [8|16]", cmd_stream_start },
+    { "stream_stop", "stop raw ADC streaming", cmd_stream_stop },
     { "dma_cap", "capture ADC block via DMA: dma_cap <N>", cmd_dma_cap },
     { "cap_start", "capture ADC: cap_start <N> <period_us>", cmd_cap_start },
     { "cap_dump", "dump last ADC timer capture", cmd_cap_dump },
