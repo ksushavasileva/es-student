@@ -197,46 +197,42 @@ void fw_info(void)
 #define VECTOR_TABLE 0x10000100u
 
 
+
 void boot_info(void)
 {
-    const volatile uint32_t *vectors =
-        (const volatile uint32_t *)VECTOR_TABLE;
+    const uint32_t *vectors =
+        (const uint32_t *)(uintptr_t)VECTOR_TABLE;
 
     uint32_t stack_top = vectors[0];
     uint32_t reset_handler = vectors[1];
-    uint32_t reset_address = reset_handler & ~1u;
+    uint32_t reset_even = reset_handler & ~1u;
 
     volatile uint32_t *gpio_in =
-        (volatile uint32_t *)(SIO_BASE + SIO_GPIO_IN_OFFSET);
+        (volatile uint32_t *)(uintptr_t)
+        (SIO_BASE + SIO_GPIO_IN_OFFSET);
 
     uint32_t gpio_value = *gpio_in;
-    uint led = led_pin();
-    uint32_t register_level = (gpio_value >> led) & 1u;
-    uint32_t sdk_level = gpio_get(led);
+    uint32_t led_bit = (gpio_value >> led_pin()) & 1u;
+    uint32_t sdk_bit = gpio_get(led_pin());
 
-    printf("address     value\n");
-
-    printf("vector table 0x%08x\n",
+    printf("vector table  0x%08x\n",
            (unsigned)VECTOR_TABLE);
 
-    printf("vector[0]   0x%08x stack top 0x%08x\n",
-           (unsigned)VECTOR_TABLE,
+    printf("  stack top    0x%08x\n",
            (unsigned)stack_top);
 
-    printf("vector[1]   0x%08x reset handler 0x%08x\n",
-           (unsigned)(VECTOR_TABLE + sizeof(uint32_t)),
+    printf("  reset        0x%08x\n",
            (unsigned)reset_handler);
 
-    printf("reset address 0x%08x\n",
-           (unsigned)reset_address);
+    printf("  reset (even) 0x%08x\n",
+           (unsigned)reset_even);
 
-    printf("gpio register 0x%08x value 0x%08x\n",
-           (unsigned)(uintptr_t)gpio_in,
-           (unsigned)gpio_value);
+    printf("gpio in       0x%08x\n",
+           (unsigned)(uintptr_t)gpio_in);
 
-    printf("gpio bit %u register %u gpio_get %u\n",
-           (unsigned)led,
-           (unsigned)register_level,
-           (unsigned)sdk_level);
+    printf("  led bit      %u\n",
+           (unsigned)led_bit);
+
+    printf("  gpio_get     %u\n",
+           (unsigned)sdk_bit);
 }
-
