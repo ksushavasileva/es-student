@@ -1,4 +1,4 @@
-
+#include <stdint.h>
 #pragma once
 
 #define DEVICE_NAME "es-led-module"
@@ -12,3 +12,14 @@
 #endif
 
 void device_info(void);
+
+struct info_t
+{
+    uint32_t version;
+    char name[13];
+    uint8_t revision;
+};
+
+extern struct info_t device_card;
+
+void dev_info(void);
