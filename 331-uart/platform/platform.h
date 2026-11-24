@@ -45,3 +45,6 @@ typedef enum {
 
 uint32_t platform_uart_baud_set(platform_uart_t uart, uint32_t baud);
 void platform_uart_parity_set(platform_uart_t uart, platform_parity_t parity);
+
+// UART0 reception interrupt, activated only for block irq mode.
+void platform_uart_rx_irq_set(bool on);

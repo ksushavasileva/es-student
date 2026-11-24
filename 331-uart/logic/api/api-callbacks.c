@@ -434,6 +434,54 @@ static void print_text(const uint8_t *data, size_t size, uint32_t errors)
     putchar('\n');
 }
 
+
+// A 64-byte block exceeds the RP2040 UART hardware FIFO (32 bytes).
+#define BLOCK_SIZE 64
+static bool block_use_irq;
+
+static void print_block(const uint8_t *data, size_t size, uint32_t errors)
+{
+    platform_uart_rx_irq_set(false);
+    uint8_t expected[BLOCK_SIZE];
+    for (size_t i = 0; i < BLOCK_SIZE; ++i) expected[i] = (uint8_t)i;
+    bool match = size > 0 && size <= BLOCK_SIZE &&
+                 memcmp(data, expected, size) == 0;
+    printf("block %s: %lu/%u %s, ",
+           block_use_irq ? "irq" : "poll",
+           (unsigned long)size, (unsigned)BLOCK_SIZE,
+           match ? "match" : "mismatch");
+    print_errors(errors);
+    putchar('\n');
+}
+
+static void cmd_block(const command_t *command)
+{
+    if (command->argc != 1 ||
+        (strcmp(command->argv[0], "irq") != 0 &&
+         strcmp(command->argv[0], "poll") != 0))
+    {
+        printf("error: usage block irq|poll\n");
+        return;
+    }
+
+    bool use_irq = strcmp(command->argv[0], "irq") == 0;
+    uint8_t data[BLOCK_SIZE];
+    for (uint32_t i = 0; i < BLOCK_SIZE; ++i)
+    {
+        data[i] = (uint8_t)i;
+    }
+
+    platform_uart_rx_irq_set(use_irq);
+    if (!uart_task_start(PLATFORM_UART1, PLATFORM_UART0,
+                         data, BLOCK_SIZE, print_block))
+    {
+        platform_uart_rx_irq_set(false);
+        printf("error: uart is busy\n");
+        return;
+    }
+    block_use_irq = use_irq;
+}
+
 static void cmd_text(const command_t *command)
 {
     if (command->argc != 0)
@@ -496,6 +544,7 @@ const api_command_t api_commands[] =
     {"link", "text from UART0 to UART1 and back: link <text>", cmd_link},
     {"baud_shift", "shift UART1 baud rate: baud_shift <percent>", cmd_baud_shift},
     {"text", "32 characters from UART1 to UART0", cmd_text},
+    {"block", "64 bytes from UART1 to UART0: block irq|poll", cmd_block},
     {"parity", "parity of UART0 and UART1: parity <rx> <tx>", cmd_parity}};
 
 const uint32_t api_command_count =

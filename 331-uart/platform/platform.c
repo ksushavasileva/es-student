@@ -3,6 +3,7 @@
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "hardware/uart.h"
+#include "hardware/irq.h"
 
 #define LED_PIN PICO_DEFAULT_LED_PIN
 #define BUTTON_PIN 15
@@ -16,6 +17,30 @@
 #define ADC_VREF_V 3.3f
 #define ADC_LEVELS 4096.0f
 
+
+// UART0 IRQ buffer is separate from the 32-byte hardware RX FIFO.
+#define RX_BUFFER_SIZE 128
+static volatile uint8_t rx_buffer[RX_BUFFER_SIZE];
+static volatile uint32_t rx_count;
+
+static void on_uart0_rx(void)
+{
+    // Drain everything currently available; never block or print in an IRQ.
+    while (uart_is_readable(uart0))
+    {
+        uint8_t byte = (uint8_t)(uart_get_hw(uart0)->dr & 0xff);
+        if (rx_count < RX_BUFFER_SIZE)
+        {
+            rx_buffer[rx_count++] = byte;
+        }
+    }
+}
+
+void platform_uart_rx_irq_set(bool on)
+{
+    uart_set_irqs_enabled(uart0, on, false);
+}
+
 void platform_init(void)
 {
     stdio_init_all();
@@ -25,6 +50,12 @@ void platform_init(void)
     uart_init(uart1, UART_BAUD);
     gpio_set_function(UART1_TX_PIN, GPIO_FUNC_UART);
     gpio_set_function(UART1_RX_PIN, GPIO_FUNC_UART);
+
+    // NVIC enabled; peripheral RX IRQ itself stays disabled until block irq.
+    irq_set_exclusive_handler(UART0_IRQ, on_uart0_rx);
+    irq_set_enabled(UART0_IRQ, true);
+    platform_uart_rx_irq_set(false);
+
 
     adc_init();
     adc_gpio_init(26);
@@ -100,6 +131,11 @@ void platform_uart_clear(platform_uart_t uart)
     }
     // Write UARTECR to clear accumulated receive errors.
     uart_get_hw(u)->rsr = 0;
+
+    if (uart == PLATFORM_UART0)
+    {
+        rx_count = 0;
+    }
 }
 
 bool platform_uart_put(platform_uart_t uart, uint8_t byte)
@@ -122,6 +158,17 @@ size_t platform_uart_read(platform_uart_t uart, uint8_t *data, size_t size)
 {
     uart_inst_t *u = uart_of(uart);
     size_t n = 0;
+
+    if (uart == PLATFORM_UART0)
+    {
+        uint32_t count = rx_count;
+        if (count > size) count = (uint32_t)size;
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            data[n++] = rx_buffer[i];
+        }
+    }
+
     while (uart_is_readable(u) && n < size)
     {
         data[n++] = (uint8_t)(uart_get_hw(u)->dr & 0xff);
