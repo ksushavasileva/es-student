@@ -9,3 +9,6 @@ bool platform_button_read(void);
 
 // Напряжение на входе GP26 в вольтах.
 float platform_voltage_read(void);
+
+// Температура кристалла RP2040 по встроенному датчику, градусы Цельсия.
+float platform_temp_read(void);

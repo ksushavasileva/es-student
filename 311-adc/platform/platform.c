@@ -1,9 +1,13 @@
+#include <stdbool.h>
 #include "platform/platform.h"
 #include "hardware/adc.h"
 
 // Вход АЦП: вывод GP26, канал 0.
 #define ADC_PIN 26
 #define ADC_CHANNEL 0
+// Встроенный датчик температуры RP2040 подключён к каналу 4.
+#define ADC_TEMP_CHANNEL 4
+
 #define ADC_VREF_V 3.3f
 #define ADC_LEVELS 4096
 
@@ -27,6 +31,8 @@ void platform_init(void)
 
     adc_init();
     adc_gpio_init(ADC_PIN);
+
+    adc_set_temp_sensor_enabled(true);
 }
 
 void platform_led_set(bool on)
@@ -44,4 +50,13 @@ float platform_voltage_read(void)
 {
     adc_select_input(ADC_CHANNEL);
     return adc_read() * ADC_VREF_V / ADC_LEVELS;
+}
+
+// Температура встроенного датчика, градусы Цельсия.
+// Выбираем канал заново: после get_temp команда get_voltage читает GP26.
+float platform_temp_read(void)
+{
+    adc_select_input(ADC_TEMP_CHANNEL);
+    float voltage_v = adc_read() * ADC_VREF_V / ADC_LEVELS;
+    return 27.0f - (voltage_v - 0.706f) / 0.001721f;
 }
