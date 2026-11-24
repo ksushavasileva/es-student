@@ -1,6 +1,7 @@
+#include "button-task.h"
+
 #include "systime/systime.h"
 
-#include "button-task/button-task.h"
 #include "platform/platform.h"
 #include <stddef.h>
 // Кнопка подключена между GP15 и GND
