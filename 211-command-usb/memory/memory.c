@@ -3,6 +3,10 @@
 #include "command.h"
 #include "device.h"
 
+#include "led.h"
+#include "hardware/gpio.h"
+#include "hardware/regs/sio.h"
+
 #include "memory.h"
 
 #include <stdio.h>
@@ -188,5 +192,55 @@ void fw_info(void)
     {
         printf("heap_variable   allocation failed\n");
     }
+}
+
+#define VECTOR_TABLE 0x10000100u
+
+void boot_info(void)
+{
+    const uint32_t *vectors =
+        (const uint32_t *)VECTOR_TABLE;
+
+    uint32_t stack_top = vectors[0];
+    uint32_t reset_handler = vectors[1];
+
+    uint32_t reset_address = reset_handler & ~1u;
+
+    volatile uint32_t *gpio_in =
+        (volatile uint32_t *)(SIO_BASE + SIO_GPIO_IN_OFFSET);
+
+    uint32_t gpio_value = *gpio_in;
+
+    uint32_t led_level =
+        (gpio_value >> led_pin()) & 1u;
+
+    uint32_t sdk_level = gpio_get(led_pin());
+
+    printf("vector table: 0x%08x\n",
+           (unsigned)VECTOR_TABLE);
+
+    printf("stack top: 0x%08x\n",
+           (unsigned)stack_top);
+
+    printf("reset handler: 0x%08x\n",
+           (unsigned)reset_handler);
+
+    printf("reset address: 0x%08x\n",
+           (unsigned)reset_address);
+
+    printf("gpio in: 0x%08x\n",
+           (unsigned)(uintptr_t)gpio_in);
+
+    printf("gpio value: 0x%08x\n",
+           (unsigned)gpio_value);
+
+    printf("led pin: %u\n",
+           (unsigned)led_pin());
+
+    printf("led level: %u\n",
+           (unsigned)led_level);
+
+    printf("gpio_get: %u\n",
+           (unsigned)sdk_level);
 }
 
