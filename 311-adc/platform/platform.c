@@ -57,7 +57,11 @@ bool platform_button_read(void)
 float platform_voltage_read(void)
 {
     adc_select_input(ADC_CHANNEL);
-    return adc_read() * ADC_VREF_V / ADC_LEVELS;
+    uint32_t sum = 0;
+    for (int i = 0; i < 32; ++i) {
+        sum += adc_read();
+    }
+    return (sum / 32.0f) * ADC_VREF_V / ADC_LEVELS;
 }
 
 // Температура встроенного датчика, градусы Цельсия.

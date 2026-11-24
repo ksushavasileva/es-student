@@ -111,39 +111,25 @@ def crossing(voltages, start, level, rising):
 
 
 def measure_tau(times, voltages):
-    """τ заряда и разряда по уровням напряжения, как по триггеру осциллографа."""
+    """?????? ?? ??????? 2%, 63.2%, 98% ? 36.8%."""
     top = max(voltages)
     peak = voltages.index(top)
     result = {"top": top}
-    # заряд: от начала подъёма (2 % вершины) до 63 % вершины
-    start = crossing(voltages, 0, 0.10 * top, True)
+
+    start = crossing(voltages, 0, 0.02 * top, True)
     end = crossing(voltages, start, 0.632 * top, True) if start is not None else None
     if end is not None and end <= peak:
-        import math
-        tau_charge = (times[end] - times[start]) / math.log(0.9 / 0.368)
-        result["charge"] = (times[end] - tau_charge, times[end], voltages[end])
-    # разряд: от начала спада (98 % вершины) до 37 % вершины
-    dt = max(0.001, (times[-1] - times[0]) / max(1, len(times) - 1))
-    half_window = max(3, round(0.06 / dt))
-    candidates = range(
-        peak + half_window,
-        len(times) - half_window
-    )
-
-    if candidates:
-        falling = max(
-            candidates,
-            key=lambda i: (
-                (voltages[i - half_window] - voltages[i + half_window]) /
-                max(0.001, times[i + half_window] - times[i - half_window])
-            )
+        result["charge"] = (
+            times[start], times[end], voltages[end]
         )
-        start = max(peak, falling - half_window)
-    else:
-        start = None
+
+    start = crossing(voltages, peak, 0.98 * top, False)
     end = crossing(voltages, start, 0.368 * top, False) if start is not None else None
     if end is not None:
-        result["discharge"] = (times[start], times[end], voltages[end])
+        result["discharge"] = (
+            times[start], times[end], voltages[end]
+        )
+
     return result
 
 
@@ -192,7 +178,7 @@ def analyze_rc(csv_name, r_kohm, c_uf):
     ax.grid(True)
     ax.legend(loc="upper right")
     fig.tight_layout()
-    fig.savefig("rc_new.png")
+    fig.savefig("rc.png")
     plt.close(fig)
     print("График сохранён в rc.png")
 
