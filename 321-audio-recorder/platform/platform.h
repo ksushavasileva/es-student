@@ -57,3 +57,9 @@ void platform_write(const void *data, uint32_t bytes);
 
 // GP20 PWM square-wave test signal. 0 turns it off; 20..20000 Hz allowed.
 bool platform_tone_set(uint32_t freq_hz);
+
+// Watchdog (RP2040), timeout must be 1..8388 ms.
+bool platform_watchdog_enable(uint32_t timeout_ms);
+void platform_watchdog_feed(void);
+// Last reboot cause and consecutive watchdog restarts.
+bool platform_watchdog_caused_reset(uint32_t *restarts);

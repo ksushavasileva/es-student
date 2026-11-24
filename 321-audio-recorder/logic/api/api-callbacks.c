@@ -526,8 +526,49 @@ static void cmd_generate_tone(const command_t *command)
     else printf("tone: %u Hz\n", (unsigned)hz);
 }
 
+// Enable watchdog recovery for a stopped superloop.
+static void cmd_wdt_enable(const command_t *command)
+{
+    uint32_t timeout_ms = 0;
+    if (command->argc != 1 || !parse_u32(command->argv[0], &timeout_ms))
+    {
+        printf("error: usage wdt_enable <timeout_ms>\n");
+        return;
+    }
+    if (!platform_watchdog_enable(timeout_ms))
+    {
+        printf("error: timeout_ms must be 1..8388\n");
+        return;
+    }
+    printf("wdt: enabled, timeout %u ms\n", (unsigned)timeout_ms);
+}
+
+// Deliberate hang: interrupt handlers may still run, superloop cannot feed WDT.
+static void cmd_hang(const command_t *command)
+{
+    (void)command;
+    printf("hang: superloop stopped\n");
+    fflush(stdout);
+    while (1)
+    {
+        // Intentionally prevent all superloop tasks from running.
+    }
+}
+
+static void cmd_reset_reason(const command_t *command)
+{
+    (void)command;
+    uint32_t restarts = 0;
+    bool reset_by_watchdog = platform_watchdog_caused_reset(&restarts);
+    printf("reset: %s, restarts %u\n",
+           reset_by_watchdog ? "watchdog" : "other", (unsigned)restarts);
+}
+
 const api_command_t api_commands[] =
 {
+    { "wdt_enable", "enable watchdog: wdt_enable <timeout_ms>", cmd_wdt_enable },
+    { "hang", "intentionally hang the superloop", cmd_hang },
+    { "reset_reason", "reason for the previous reset", cmd_reset_reason },
     { "generate_tone", "PWM test tone: generate_tone <Hz>", cmd_generate_tone },
     { "stream_start", "start raw ADC streaming: stream_start [8|16]", cmd_stream_start },
     { "stream_stop", "stop raw ADC streaming", cmd_stream_stop },

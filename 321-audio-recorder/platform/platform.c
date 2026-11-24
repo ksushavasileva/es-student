@@ -10,6 +10,7 @@
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
+#include "hardware/watchdog.h"
 #include "pico/stdio.h"
 
 // Вход АЦП: вывод GP26, канал 0.
@@ -208,8 +209,22 @@ bool platform_tone_set(uint32_t freq_hz)
     return true;
 }
 
+// RP2040-E1 maximum safe watchdog timeout.
+#define WATCHDOG_MAX_MS 8388u
+static bool watchdog_reset;
+static uint32_t watchdog_restarts;
+
 void platform_init(void)
 {
+    // Read reboot cause before initializing the board. Scratch register 0
+    // survives watchdog resets; SDK owns scratch registers 4..7.
+    watchdog_reset = watchdog_enable_caused_reboot();
+    if (watchdog_reset)
+        watchdog_hw->scratch[0]++;
+    else
+        watchdog_hw->scratch[0] = 0;
+    watchdog_restarts = watchdog_hw->scratch[0];
+
     stdio_init_all();
 
     gpio_init(LED_PIN);
@@ -415,4 +430,25 @@ void platform_capture_get(platform_capture_t *capture)
     if (elapsed_us != 0) {
         capture->handler_percent = 100.0f * (float)capture_handler_us / (float)elapsed_us;
     }
+}
+
+// Enable the watchdog, but leave it disabled after each restart until requested.
+bool platform_watchdog_enable(uint32_t timeout_ms)
+{
+    if (timeout_ms == 0 || timeout_ms > WATCHDOG_MAX_MS)
+        return false;
+    watchdog_enable(timeout_ms, true);
+    return true;
+}
+
+void platform_watchdog_feed(void)
+{
+    watchdog_update();
+}
+
+bool platform_watchdog_caused_reset(uint32_t *restarts)
+{
+    if (restarts != NULL)
+        *restarts = watchdog_restarts;
+    return watchdog_reset;
 }

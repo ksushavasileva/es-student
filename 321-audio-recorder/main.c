@@ -81,6 +81,8 @@ int main(void)
         stream_task_handle();
         profiling_stop(STOPWATCH_STREAM);
 
+        // Every superloop task returned: the firmware is alive.
+        platform_watchdog_feed();
         profiling_stop(STOPWATCH_LOOP);
     }
 }

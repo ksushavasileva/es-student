@@ -22,6 +22,7 @@ add_library(platform STATIC
 )
 target_include_directories(platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(platform PRIVATE pico_stdlib
+    hardware_watchdog
     hardware_adc
     hardware_dma
 
