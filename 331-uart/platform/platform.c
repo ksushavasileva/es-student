@@ -2,6 +2,8 @@
 
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
+#include "hardware/dma.h"
+#include "hardware/irq.h"
 #include "hardware/uart.h"
 #include "hardware/irq.h"
 
@@ -41,6 +43,81 @@ void platform_uart_rx_irq_set(bool on)
     uart_set_irqs_enabled(uart0, on, false);
 }
 
+
+// DMA oscilloscope: ADC0 (GP26), free-running at the RP2040 limit of 500 kS/s.
+static int block_channel;
+static uint16_t block_samples[PLATFORM_BLOCK_MAX];
+static uint32_t block_start_us;
+static volatile uint32_t block_end_us;
+static volatile bool block_ready;
+static volatile bool block_busy;
+
+static void adc_free_running(void)
+{
+    adc_select_input(ADC_CHANNEL);
+    adc_run(false);
+    adc_fifo_drain();
+    adc_fifo_setup(true, true, 1, false, false);
+    // Conversion takes 96 ADC clocks. Divider zero means back-to-back conversions.
+    adc_set_clkdiv(0);
+}
+
+static void adc_one_shot(void)
+{
+    adc_run(false);
+    adc_fifo_drain();
+    adc_fifo_setup(false, false, 0, false, false);
+    adc_set_clkdiv(0);
+}
+
+// DMA IRQ handler: no printing and no waiting.
+static void on_block_done(void)
+{
+    dma_channel_acknowledge_irq1(block_channel);
+    block_end_us = time_us_32();
+    adc_one_shot();
+    block_busy = false;
+    block_ready = true;
+}
+
+bool platform_block_start(uint32_t count)
+{
+    if (block_busy || count == 0 || count > PLATFORM_BLOCK_MAX)
+    {
+        return false;
+    }
+    adc_free_running();
+
+    dma_channel_config cfg = dma_channel_get_default_config(block_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, true);
+    channel_config_set_dreq(&cfg, DREQ_ADC);
+
+    block_ready = false;
+    block_busy = true;
+    dma_channel_configure(block_channel, &cfg,
+                          block_samples, &adc_hw->fifo, count, true);
+    block_start_us = time_us_32();
+    adc_run(true);
+    return true;
+}
+
+bool platform_block_done(void)
+{
+    return block_ready;
+}
+
+const uint16_t *platform_block_samples(void)
+{
+    return block_samples;
+}
+
+uint32_t platform_block_time_us(void)
+{
+    return block_end_us - block_start_us;
+}
+
 void platform_init(void)
 {
     stdio_init_all();
@@ -59,6 +136,10 @@ void platform_init(void)
 
     adc_init();
     adc_gpio_init(26);
+    block_channel = dma_claim_unused_channel(true);
+    dma_channel_set_irq1_enabled(block_channel, true);
+    irq_set_exclusive_handler(DMA_IRQ_1, on_block_done);
+    irq_set_enabled(DMA_IRQ_1, true);
     gpio_init(LINE_PIN);
     platform_line_set(PLATFORM_LINE_PUSH_PULL, false);
 

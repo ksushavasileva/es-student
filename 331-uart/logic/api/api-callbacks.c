@@ -16,6 +16,7 @@
 #include "button-task/button-task.h"
 #include "pi-task/pi-task.h"
 #include "edge-task/edge-task.h"
+#include "block-task/block-task.h"
 #include "uart-task/uart-task.h"
 #include <ctype.h>
 #include "firmware.h"
@@ -523,6 +524,95 @@ static void cmd_parity(const command_t *command)
     printf("parity: uart0 %s, uart1 %s\n", command->argv[0], command->argv[1]);
 }
 
+
+// The capture should include idle-high level, then UART0 start/data/stop bits.
+#define SCOPE_SAMPLES PLATFORM_BLOCK_MAX
+#define SCOPE_BAUD_MIN 9600
+#define SCOPE_TEXT_MAX 4
+
+static uint8_t scope_rx[UART_TASK_MAX];
+static size_t scope_rx_size;
+static uint32_t scope_rx_errors;
+static uint32_t scope_baud;
+
+static void print_scope_rx(const uint8_t *data, size_t size, uint32_t errors)
+{
+    scope_rx_size = size < sizeof(scope_rx) ? size : sizeof(scope_rx);
+    memcpy(scope_rx, data, scope_rx_size);
+    scope_rx_errors = errors;
+}
+
+static void print_scope(const uint16_t *samples, uint32_t count, uint32_t time_us)
+{
+    (void)time_us;
+    // Restore default speeds for following experiments.
+    platform_uart_baud_set(PLATFORM_UART0, 115200);
+    platform_uart_baud_set(PLATFORM_UART1, 115200);
+
+    printf("scope: %lu samples, %u Hz, %lu baud, uart1 ",
+           (unsigned long)count, (unsigned)PLATFORM_SAMPLE_RATE_HZ,
+           (unsigned long)scope_baud);
+    print_bytes(scope_rx, scope_rx_size);
+    putchar(' ');
+    print_errors(scope_rx_errors);
+    putchar('\n');
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        printf("%u", (unsigned)samples[i]);
+        if (i % 16 == 15 || i + 1 == count)
+        {
+            putchar('\n');
+        }
+        else
+        {
+            putchar(' ');
+        }
+    }
+    printf("scope: end\n");
+}
+
+static void cmd_scope(const command_t *command)
+{
+    uint32_t baud = 0;
+    if (command->argc != 2 ||
+        !parse_u32(command->argv[0], &baud) ||
+        baud < SCOPE_BAUD_MIN || baud > 115200 ||
+        strlen(command->argv[1]) == 0 ||
+        strlen(command->argv[1]) > SCOPE_TEXT_MAX)
+    {
+        printf("error: usage scope <baud> <text>\n");
+        return;
+    }
+
+    // Re-enable external pins; preceding tests may have enabled internal loopback.
+    platform_uart_loop_set(false);
+    platform_uart_parity_set(PLATFORM_UART0, PLATFORM_PARITY_NONE);
+    platform_uart_parity_set(PLATFORM_UART1, PLATFORM_PARITY_NONE);
+    platform_uart_baud_set(PLATFORM_UART0, baud);
+    platform_uart_baud_set(PLATFORM_UART1, baud);
+    scope_baud = baud;
+    scope_rx_size = 0;
+    scope_rx_errors = 0;
+
+    if (!block_task_start(SCOPE_SAMPLES, print_scope))
+    {
+        platform_uart_baud_set(PLATFORM_UART0, 115200);
+        platform_uart_baud_set(PLATFORM_UART1, 115200);
+        printf("error: adc busy\n");
+        return;
+    }
+
+    // The UART transmission is non-blocking; the DMA samples already started.
+    if (!uart_task_start(PLATFORM_UART0, PLATFORM_UART1,
+                         (const uint8_t *)command->argv[1],
+                         strlen(command->argv[1]), print_scope_rx))
+    {
+        // There is no UART-busy condition in the course's normal scope run.
+        // Complete the already-started DMA capture instead of stopping the core.
+        printf("error: uart is busy\n");
+    }
+}
+
 const api_command_t api_commands[] =
 {
     {"info", "device passport", cmd_info},
@@ -544,6 +634,7 @@ const api_command_t api_commands[] =
     {"link", "text from UART0 to UART1 and back: link <text>", cmd_link},
     {"baud_shift", "shift UART1 baud rate: baud_shift <percent>", cmd_baud_shift},
     {"text", "32 characters from UART1 to UART0", cmd_text},
+    {"scope", "UART0 line on ADC: scope <baud> <text>", cmd_scope},
     {"block", "64 bytes from UART1 to UART0: block irq|poll", cmd_block},
     {"parity", "parity of UART0 and UART1: parity <rx> <tx>", cmd_parity}};
 

@@ -48,3 +48,11 @@ void platform_uart_parity_set(platform_uart_t uart, platform_parity_t parity);
 
 // UART0 reception interrupt, activated only for block irq mode.
 void platform_uart_rx_irq_set(bool on);
+
+// UART0 line sampling: 500 kHz (2 us per sample), 4096 points = 8.192 ms.
+#define PLATFORM_SAMPLE_RATE_HZ 500000
+#define PLATFORM_BLOCK_MAX 4096
+bool platform_block_start(uint32_t count);
+bool platform_block_done(void);
+const uint16_t *platform_block_samples(void);
+uint32_t platform_block_time_us(void);

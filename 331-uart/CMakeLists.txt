@@ -20,7 +20,7 @@ add_library(platform STATIC
     platform/platform.c
 )
 target_include_directories(platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(platform PRIVATE pico_stdlib hardware_adc hardware_uart)
+target_link_libraries(platform PRIVATE pico_stdlib hardware_adc hardware_uart hardware_dma)
 
 # The logic library intentionally has NO Pico SDK dependency.
 add_library(logic STATIC
@@ -31,6 +31,7 @@ add_library(logic STATIC
     logic/pi-task/pi-task.c
     logic/edge-task/edge-task.c
     logic/uart-task/uart-task.c
+    logic/block-task/block-task.c
 )
 target_include_directories(logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/logic
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

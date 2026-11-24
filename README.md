@@ -39,3 +39,5 @@
 [![3.3.3 Два модуля и допуск скорости](https://github.com/ksushavasileva/es-student/actions/workflows/check-3-3-3.yml/badge.svg)](https://github.com/ksushavasileva/es-student/actions/workflows/check-3-3-3.yml)
 
 [![3.3.4 Приём блока](https://github.com/ksushavasileva/es-student/actions/workflows/check-3-3-4.yml/badge.svg)](https://github.com/ksushavasileva/es-student/actions/workflows/check-3-3-4.yml)
+
+[![3.3.5 Осциллограмма UART](https://github.com/ksushavasileva/es-student/actions/workflows/check-3-3-5.yml/badge.svg)](https://github.com/ksushavasileva/es-student/actions/workflows/check-3-3-5.yml)
