@@ -1,4 +1,4 @@
-#include "button-task/button-task.h"
+﻿#include "button-task/button-task.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -7,7 +7,7 @@
 // Время подавления дребезга: 20 мс.
 #define BUTTON_DEBOUNCE_US 20000ULL
 // Порог долгого нажатия: 1 с (без пауз и ожидания).
-#define BUTTON_LONG_PRESS_US 1000000ULL
+#define BUTTON_LONG_PRESS_US 1000000
 
 typedef enum
 {
@@ -148,3 +148,4 @@ uint32_t button_task_get_press_count(platform_button_t button)
 
     return buttons[button].press_count;
 }
+
