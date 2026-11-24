@@ -6,6 +6,8 @@
 #define CHARGE_PIN 22
 
 #include "hardware/adc.h"
+#include "hardware/pwm.h"
+#include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
 #include "pico/stdio.h"
@@ -186,6 +188,26 @@ void platform_write(const void *data, uint32_t bytes)
     stdio_put_string((const char *)data, (int)bytes, false, false);
 }
 
+// Audio test tone is generated entirely by PWM hardware on GP20.
+#define TONE_PIN 20
+#define TONE_COUNT_HZ 1000000u
+
+bool platform_tone_set(uint32_t freq_hz)
+{
+    if (freq_hz == 0) {
+        pwm_set_gpio_level(TONE_PIN, 0);
+        return true;
+    }
+    if (freq_hz < 20 || freq_hz > 20000) return false;
+
+    // 1 MHz counter: TOP+1 is the tone period in microseconds.
+    uint32_t period_us = TONE_COUNT_HZ / freq_hz;
+    uint slice = pwm_gpio_to_slice_num(TONE_PIN);
+    pwm_set_wrap(slice, (uint16_t)(period_us - 1));
+    pwm_set_gpio_level(TONE_PIN, (uint16_t)(period_us / 2));
+    return true;
+}
+
 void platform_init(void)
 {
     stdio_init_all();
@@ -207,6 +229,15 @@ void platform_init(void)
     gpio_init(CHARGE_PIN);
     gpio_put(CHARGE_PIN, false);
     gpio_set_dir(CHARGE_PIN, GPIO_OUT);
+
+    // One PWM tick = one microsecond. Idle output is always low.
+    gpio_set_function(TONE_PIN, GPIO_FUNC_PWM);
+    uint tone_slice = pwm_gpio_to_slice_num(TONE_PIN);
+    pwm_config tone_cfg = pwm_get_default_config();
+    pwm_config_set_clkdiv(&tone_cfg, (float)clock_get_hz(clk_sys) / TONE_COUNT_HZ);
+    pwm_config_set_wrap(&tone_cfg, 999);
+    pwm_init(tone_slice, &tone_cfg, true);
+    pwm_set_gpio_level(TONE_PIN, 0);
 
     // IRQ 1 is dedicated to completed ADC DMA blocks.
     block_channel = dma_claim_unused_channel(true);

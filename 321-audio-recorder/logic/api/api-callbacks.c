@@ -510,8 +510,25 @@ static void cmd_stream_stop(const command_t *command)
            (unsigned)stream_task_get_overruns());
 }
 
+// PWM square-wave generator for the ADC test input.
+static void cmd_generate_tone(const command_t *command)
+{
+    uint32_t hz = 0;
+    if (command->argc != 1 || !parse_u32(command->argv[0], &hz)) {
+        printf("error: usage generate_tone <Hz>\n");
+        return;
+    }
+    if (!platform_tone_set(hz)) {
+        printf("error: Hz must be 0 or 20..20000\n");
+        return;
+    }
+    if (hz == 0) printf("tone: off\n");
+    else printf("tone: %u Hz\n", (unsigned)hz);
+}
+
 const api_command_t api_commands[] =
 {
+    { "generate_tone", "PWM test tone: generate_tone <Hz>", cmd_generate_tone },
     { "stream_start", "start raw ADC streaming: stream_start [8|16]", cmd_stream_start },
     { "stream_stop", "stop raw ADC streaming", cmd_stream_stop },
     { "dma_cap", "capture ADC block via DMA: dma_cap <N>", cmd_dma_cap },
