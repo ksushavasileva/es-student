@@ -1,4 +1,4 @@
-
+#include "led-task.h"
 #include "api.h"
 
 #include <errno.h>
@@ -132,14 +132,93 @@ static void cmd_main_time_reset(const command_t *command)
     printf("max reset\n");
 }
 
+// Общий ответ о состоянии светодиода
+static void print_led_status(void)
+{
+    const char *state_name = "off";
+
+    switch (led_task_get_state())
+    {
+        case LED_STATE_OFF:
+            state_name = "off";
+            break;
+
+        case LED_STATE_ON:
+            state_name = "on";
+            break;
+
+        case LED_STATE_BLINK:
+            state_name = "blink";
+            break;
+    }
+
+    printf("led: %s, period %u ms\n",
+           state_name,
+           (unsigned)led_task_get_period_ms());
+}
+
+// Включить светодиод
+static void cmd_led_enable(const command_t *command)
+{
+    (void)command;
+
+    led_task_set_state(LED_STATE_ON);
+    print_led_status();
+}
+
+// Выключить светодиод
+static void cmd_led_disable(const command_t *command)
+{
+    (void)command;
+
+    led_task_set_state(LED_STATE_OFF);
+    print_led_status();
+}
+
+// Включить мигание
+static void cmd_led_blink(const command_t *command)
+{
+    (void)command;
+
+    led_task_set_state(LED_STATE_BLINK);
+    print_led_status();
+}
+
+// Изменить период мигания
+static void cmd_led_period(const command_t *command)
+{
+    uint32_t period_ms = 0;
+
+    if (command->argc != 1 ||
+        !parse_u32(command->argv[0], &period_ms))
+    {
+        printf("error: usage led_period <period_ms>\n");
+        return;
+    }
+
+    if (!led_task_set_period_ms(period_ms))
+    {
+        printf("error: period_ms must be greater than 0\n");
+        return;
+    }
+
+    print_led_status();
+}
+
 // Таблица команд
+
 static const api_command_t api_commands[] =
 {
     {"info", "device passport", cmd_info},
     {"uptime", "time since reset", cmd_uptime},
     {"calc_pi", "calculate pi: calc_pi [terms]", cmd_calc_pi},
     {"main_time_exec", "superloop iteration: average and maximum", cmd_main_time_exec},
-    {"main_time_reset", "reset maximum iteration", cmd_main_time_reset}
+    {"main_time_reset", "reset maximum iteration", cmd_main_time_reset},
+
+    {"led_enable", "turn LED on", cmd_led_enable},
+    {"led_disable", "turn LED off", cmd_led_disable},
+    {"led_blink", "make LED blink", cmd_led_blink},
+    {"led_period", "set blinking period: led_period <period_ms>", cmd_led_period}
 };
 
 static const uint32_t api_command_count =
