@@ -4,8 +4,10 @@
 #include <stdint.h>
 #include "systime/systime.h"
 
-// 20 мс подавления дребезга; ожидания и sleep нет.
+// Время подавления дребезга: 20 мс.
 #define BUTTON_DEBOUNCE_US 20000ULL
+// Порог долгого нажатия: 1 с (без пауз и ожидания).
+#define BUTTON_LONG_PRESS_US 1000000ULL
 
 typedef enum
 {
@@ -19,30 +21,39 @@ typedef struct
 {
     button_state_t state;
     uint64_t change_us;
+    uint64_t pressed_since_us;
     uint32_t press_count;
+    bool long_reported;
     button_task_callback_t on_press;
+    button_task_callback_t on_long_press;
 } button_instance_t;
 
 static button_instance_t buttons[PLATFORM_BUTTON_COUNT];
 
-void button_task_init(platform_button_t button, button_task_callback_t on_press)
+void button_task_init(platform_button_t button,
+                      button_task_callback_t on_press,
+                      button_task_callback_t on_long_press)
 {
     if ((unsigned)button >= PLATFORM_BUTTON_COUNT)
     {
         return;
     }
 
-    buttons[button].state = BUTTON_STATE_RELEASED;
-    buttons[button].change_us = systime_us();
-    buttons[button].press_count = 0;
-    buttons[button].on_press = on_press;
+    button_instance_t *item = &buttons[button];
+    item->state = BUTTON_STATE_RELEASED;
+    item->change_us = systime_us();
+    item->pressed_since_us = 0;
+    item->press_count = 0;
+    item->long_reported = false;
+    item->on_press = on_press;
+    item->on_long_press = on_long_press;
 }
 
 void button_task_handle(void)
 {
     uint64_t now_us = systime_us();
 
-    // Каждая кнопка имеет независимый автомат состояний.
+    // Для каждой кнопки — своя независимая машина состояний.
     for (unsigned id = 0; id < PLATFORM_BUTTON_COUNT; id++)
     {
         button_instance_t *button = &buttons[id];
@@ -66,8 +77,12 @@ void button_task_handle(void)
                 else if (now_us - button->change_us >= BUTTON_DEBOUNCE_US)
                 {
                     button->state = BUTTON_STATE_PRESSED;
+                    button->pressed_since_us = now_us;
+                    button->long_reported = false;
                     button->press_count++;
-                    if (button->on_press != NULL)
+
+                    // Для второй кнопки прежнее действие — при нажатии.
+                    if (button->on_long_press == NULL && button->on_press != NULL)
                     {
                         button->on_press();
                     }
@@ -80,16 +95,33 @@ void button_task_handle(void)
                     button->change_us = now_us;
                     button->state = BUTTON_STATE_RELEASE_CHECK;
                 }
+                else if (button->on_long_press != NULL &&
+                         !button->long_reported &&
+                         now_us - button->pressed_since_us >= BUTTON_LONG_PRESS_US)
+                {
+                    button->long_reported = true;
+                    button->on_long_press();
+                }
                 break;
 
             case BUTTON_STATE_RELEASE_CHECK:
                 if (pressed)
                 {
+                    // Ложное отпускание от дребезга: событие не повторяем.
                     button->state = BUTTON_STATE_PRESSED;
                 }
                 else if (now_us - button->change_us >= BUTTON_DEBOUNCE_US)
                 {
                     button->state = BUTTON_STATE_RELEASED;
+
+                    // Только короткое нажатие первой кнопки — при отпускании.
+                    // После длинного события короткое уже не вызывается.
+                    if (button->on_long_press != NULL &&
+                        !button->long_reported &&
+                        button->on_press != NULL)
+                    {
+                        button->on_press();
+                    }
                 }
                 break;
         }

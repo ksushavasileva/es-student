@@ -13,3 +13,5 @@
 ![](https://github.com/ksushavasileva/es-student/actions/workflows/check-2-3-8.yml/badge.svg)
 
 ![](https://github.com/ksushavasileva/es-student/actions/workflows/check-2-3-9.yml/badge.svg)
+
+![](https://github.com/ksushavasileva/es-student/actions/workflows/check-2-3-9d.yml/badge.svg)

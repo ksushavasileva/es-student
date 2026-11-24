@@ -23,3 +23,6 @@ void led_task_next_state(void);
 
 // Следующий период по кругу 250 -> 500 -> 1000 -> 250 мс.
 void led_task_next_period(void);
+
+// Для долгого нажатия: перейти в состояние мигания.
+void led_task_blink(void);
