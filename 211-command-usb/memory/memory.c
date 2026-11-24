@@ -196,51 +196,47 @@ void fw_info(void)
 
 #define VECTOR_TABLE 0x10000100u
 
+
 void boot_info(void)
 {
-    const uint32_t *vectors =
-        (const uint32_t *)VECTOR_TABLE;
+    const volatile uint32_t *vectors =
+        (const volatile uint32_t *)VECTOR_TABLE;
 
     uint32_t stack_top = vectors[0];
     uint32_t reset_handler = vectors[1];
-
     uint32_t reset_address = reset_handler & ~1u;
 
     volatile uint32_t *gpio_in =
         (volatile uint32_t *)(SIO_BASE + SIO_GPIO_IN_OFFSET);
 
     uint32_t gpio_value = *gpio_in;
+    uint led = led_pin();
+    uint32_t register_level = (gpio_value >> led) & 1u;
+    uint32_t sdk_level = gpio_get(led);
 
-    uint32_t led_level =
-        (gpio_value >> led_pin()) & 1u;
+    printf("address     value\n");
 
-    uint32_t sdk_level = gpio_get(led_pin());
-
-    printf("vector table: 0x%08x\n",
+    printf("vector table 0x%08x\n",
            (unsigned)VECTOR_TABLE);
 
-    printf("stack top: 0x%08x\n",
+    printf("vector[0]   0x%08x stack top 0x%08x\n",
+           (unsigned)VECTOR_TABLE,
            (unsigned)stack_top);
 
-    printf("reset handler: 0x%08x\n",
+    printf("vector[1]   0x%08x reset handler 0x%08x\n",
+           (unsigned)(VECTOR_TABLE + sizeof(uint32_t)),
            (unsigned)reset_handler);
 
-    printf("reset address: 0x%08x\n",
+    printf("reset address 0x%08x\n",
            (unsigned)reset_address);
 
-    printf("gpio in: 0x%08x\n",
-           (unsigned)(uintptr_t)gpio_in);
-
-    printf("gpio value: 0x%08x\n",
+    printf("gpio register 0x%08x value 0x%08x\n",
+           (unsigned)(uintptr_t)gpio_in,
            (unsigned)gpio_value);
 
-    printf("led pin: %u\n",
-           (unsigned)led_pin());
-
-    printf("led level: %u\n",
-           (unsigned)led_level);
-
-    printf("gpio_get: %u\n",
+    printf("gpio bit %u register %u gpio_get %u\n",
+           (unsigned)led,
+           (unsigned)register_level,
            (unsigned)sdk_level);
 }
 
