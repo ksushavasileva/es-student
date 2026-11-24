@@ -16,6 +16,8 @@
 #include "button-task/button-task.h"
 #include "pi-task/pi-task.h"
 #include "edge-task/edge-task.h"
+#include "uart-task/uart-task.h"
+#include <ctype.h>
 #include "firmware.h"
 
 static bool parse_u32(const char *text, uint32_t *value)
@@ -272,6 +274,84 @@ static void cmd_edge(const command_t *command)
     if (!edge_task_start(mode, print_edge)) printf("error: edge is busy\n");
 }
 
+// UART0 loopback: hardware internal LBE or external GP0->GP1.
+#define ECHO_MAX 32
+
+static void print_bytes(const uint8_t *data, size_t size)
+{
+    for (size_t i = 0; i < size; i++)
+    {
+        putchar(isprint((unsigned char)data[i]) ? data[i] : '.');
+    }
+}
+
+static void print_errors(uint32_t errors)
+{
+    printf("err:");
+    if ((errors & 0xf) == 0)
+    {
+        printf(" none");
+        return;
+    }
+    if (errors & PLATFORM_UART_FE) printf(" FE");
+    if (errors & PLATFORM_UART_PE) printf(" PE");
+    if (errors & PLATFORM_UART_BE) printf(" BE");
+    if (errors & PLATFORM_UART_OE) printf(" OE");
+}
+
+static void cmd_loop(const command_t *command)
+{
+    if (command->argc != 1)
+    {
+        printf("error: usage loop internal|pins\n");
+        return;
+    }
+    if (strcmp(command->argv[0], "internal") == 0)
+    {
+        platform_uart_loop_set(true);
+        printf("loop: internal\n");
+    }
+    else if (strcmp(command->argv[0], "pins") == 0)
+    {
+        platform_uart_loop_set(false);
+        printf("loop: pins\n");
+    }
+    else
+    {
+        printf("error: usage loop internal|pins\n");
+    }
+}
+
+static void print_echo(const uint8_t *data, size_t size, uint32_t errors)
+{
+    printf("rx: ");
+    print_bytes(data, size);
+    putchar(' ');
+    print_errors(errors);
+    putchar('\n');
+}
+
+static void cmd_echo(const command_t *command)
+{
+    if (command->argc != 1)
+    {
+        printf("error: usage echo <text>\n");
+        return;
+    }
+    const char *value = command->argv[0];
+    size_t len = strlen(value);
+    if (len > ECHO_MAX)
+    {
+        printf("error: text longer than 32\n");
+        return;
+    }
+    if (!uart_task_start(PLATFORM_UART0, PLATFORM_UART0,
+                         (const uint8_t *)value, len, print_echo))
+    {
+        printf("error: uart is busy\n");
+    }
+}
+
 // РўР°Р±Р»РёС†Р° РєРѕРјР°РЅРґ
 
 const api_command_t api_commands[] =
@@ -289,7 +369,9 @@ const api_command_t api_commands[] =
     
     {"led_period", "set blinking period: led_period <period_ms>", cmd_led_period},
     {"button", "button state and press count", cmd_button},
-    {"edge", "rise and fall of the RC line: edge pp|od", cmd_edge}
+    {"edge", "rise and fall of the RC line: edge pp|od", cmd_edge},
+    {"loop", "UART0 loopback: loop internal|pins", cmd_loop},
+    {"echo", "text through UART0 and back: echo <text>", cmd_echo}
 
 };
 
