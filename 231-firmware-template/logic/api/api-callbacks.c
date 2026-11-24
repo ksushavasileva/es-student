@@ -41,7 +41,7 @@ static bool parse_u32(const char *text, uint32_t *value)
     return true;
 }
 
-// Паспорт прибора
+// РџР°СЃРїРѕСЂС‚ РїСЂРёР±РѕСЂР°
 static void cmd_info(const command_t *command)
 {
     (void)command;
@@ -49,20 +49,20 @@ static void cmd_info(const command_t *command)
     device_info_t info;
     device_get_info(&info);
 
-    printf("firmware: %s\n", FIRMWARE_NAME);
+    printf("name: %s\n", FIRMWARE_NAME);
     printf("version: %s\n", FIRMWARE_VERSION);
+    printf("project: %s\n", FIRMWARE_PROJECT);
+    printf("repo: %s\n", FIRMWARE_REPO);
     printf("board: %s\n", info.board);
     printf("serial: %s\n", info.serial);
-    printf("manufacturer: 0x%03x\n",
-           (unsigned)info.manufacturer);
-    printf("part: 0x%04x\n",
-           (unsigned)info.part);
-    printf("revision: %u\n",
+    printf("chip: manufacturer 0x%03x, part 0x%04x, revision %u\n",
+           (unsigned)info.manufacturer,
+           (unsigned)info.part,
            (unsigned)info.revision);
-    printf("sdk: %s\n", info.sdk_version);
+    printf("pico-sdk: %s\n", info.sdk_version);
 }
 
-// Время с момента включения платы
+// Р’СЂРµРјСЏ СЃ РјРѕРјРµРЅС‚Р° РІРєР»СЋС‡РµРЅРёСЏ РїР»Р°С‚С‹
 static void cmd_uptime(const command_t *command)
 {
     (void)command;
@@ -71,7 +71,7 @@ static void cmd_uptime(const command_t *command)
            (unsigned long long)(systime_ms()));
 }
 
-// Вычисление числа пи
+// Р’С‹С‡РёСЃР»РµРЅРёРµ С‡РёСЃР»Р° РїРё
 // ????????? ????????????? ?????? ????? pi.
 static void cmd_pi_start(const command_t *command)
 {
@@ -162,13 +162,13 @@ static void cmd_profiling_reset(const command_t *command)
     (void)command;
 
     profiling_reset();
-    printf("profiling: reset\n");
+    printf("profiling reset\n");
 }
 
-// Сброс максимального времени итерации
+// РЎР±СЂРѕСЃ РјР°РєСЃРёРјР°Р»СЊРЅРѕРіРѕ РІСЂРµРјРµРЅРё РёС‚РµСЂР°С†РёРё
 
 
-// Общий ответ о состоянии светодиода
+// РћР±С‰РёР№ РѕС‚РІРµС‚ Рѕ СЃРѕСЃС‚РѕСЏРЅРёРё СЃРІРµС‚РѕРґРёРѕРґР°
 static void print_led_status(void)
 {
     const char *state_name = "off";
@@ -193,7 +193,7 @@ static void print_led_status(void)
            (unsigned)led_task_get_period_ms());
 }
 
-// Включить светодиод
+// Р’РєР»СЋС‡РёС‚СЊ СЃРІРµС‚РѕРґРёРѕРґ
 static void cmd_led_enable(const command_t *command)
 {
     (void)command;
@@ -202,7 +202,7 @@ static void cmd_led_enable(const command_t *command)
     print_led_status();
 }
 
-// Выключить светодиод
+// Р’С‹РєР»СЋС‡РёС‚СЊ СЃРІРµС‚РѕРґРёРѕРґ
 static void cmd_led_disable(const command_t *command)
 {
     (void)command;
@@ -211,7 +211,7 @@ static void cmd_led_disable(const command_t *command)
     print_led_status();
 }
 
-// Включить мигание
+// Р’РєР»СЋС‡РёС‚СЊ РјРёРіР°РЅРёРµ
 static void cmd_led_blink(const command_t *command)
 {
     (void)command;
@@ -220,7 +220,7 @@ static void cmd_led_blink(const command_t *command)
     print_led_status();
 }
 
-// Изменить период мигания
+// РР·РјРµРЅРёС‚СЊ РїРµСЂРёРѕРґ РјРёРіР°РЅРёСЏ
 static void cmd_led_period(const command_t *command)
 {
     uint32_t period_ms = 0;
@@ -253,7 +253,7 @@ static void cmd_button(const command_t *command)
            (unsigned)button_task_get_press_count());
 }
 
-// Таблица команд
+// РўР°Р±Р»РёС†Р° РєРѕРјР°РЅРґ
 
 const api_command_t api_commands[] =
 {
@@ -276,4 +276,5 @@ const api_command_t api_commands[] =
 const uint32_t api_command_count =
     sizeof(api_commands) / sizeof(api_commands[0]);
 
-// Поиск команды и выполнение обработчика
+// РџРѕРёСЃРє РєРѕРјР°РЅРґС‹ Рё РІС‹РїРѕР»РЅРµРЅРёРµ РѕР±СЂР°Р±РѕС‚С‡РёРєР°
+
