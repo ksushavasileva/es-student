@@ -1,13 +1,9 @@
 #include "systime/systime.h"
 
-#include "button-task.h"
-
-#include "pico/stdlib.h"
-#include "led-task.h"
-
+#include "button-task/button-task.h"
+#include "platform/platform.h"
+#include <stddef.h>
 // Кнопка подключена между GP15 и GND
-#define BUTTON_PIN 15
-
 // Время подавления дребезга — 20 мс
 #define BUTTON_DEBOUNCE_US 20000
 
@@ -19,27 +15,26 @@ typedef enum
     BUTTON_STATE_RELEASE_CHECK
 } button_state_t;
 
+static button_task_callback_t button_on_press = NULL;
+
 static button_state_t button_state = BUTTON_STATE_RELEASED;
 
 static uint64_t change_time_us = 0;
 static uint32_t press_count = 0;
 
-void button_task_init(void)
+void button_task_init(button_task_callback_t on_press)
 {
-    gpio_init(BUTTON_PIN);
-    gpio_set_dir(BUTTON_PIN, GPIO_IN);
-    gpio_pull_up(BUTTON_PIN);
-
     button_state = BUTTON_STATE_RELEASED;
     change_time_us = systime_us();
     press_count = 0;
+    button_on_press = on_press;
 }
 
 void button_task_handle(void)
 {
     // Кнопка замыкает GP15 на землю:
     // 0 — нажата, 1 — отпущена
-    bool pressed = !gpio_get(BUTTON_PIN);
+    bool pressed = platform_button_read();
 
     uint64_t now_us = systime_us();
 
@@ -64,7 +59,10 @@ void button_task_handle(void)
 
                 press_count++;
 
-                led_task_next_state();
+                if (button_on_press != NULL)
+                {
+                    button_on_press();
+                }
             }
             break;
 

@@ -1,8 +1,6 @@
-#include "systime/systime.h"
-#include "firmware.h"
-#include "led-task.h"
-#include "api.h"
-#include "button-task.h"
+#include "api/api.h"
+#include "api/api-commands.h"
+
 #include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -10,20 +8,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "device/device.h"
 #include "profiling/profiling.h"
-#include "pi-task.h"
+#include "systime/systime.h"
+#include "led-task/led-task.h"
+#include "button-task/button-task.h"
+#include "pi-task/pi-task.h"
+#include "firmware.h"
 
-typedef void (*api_callback_t)(const command_t *command);
-
-typedef struct
-{
-    const char *name;
-    const char *help;
-    api_callback_t callback;
-} api_command_t;
-
-// Разбор целого числа из аргумента команды
 static bool parse_u32(const char *text, uint32_t *value)
 {
     if (text == NULL || *text == '\0' || *text == '-')
@@ -262,7 +255,7 @@ static void cmd_button(const command_t *command)
 
 // Таблица команд
 
-static const api_command_t api_commands[] =
+const api_command_t api_commands[] =
 {
     {"info", "device passport", cmd_info},
     {"uptime", "time since reset", cmd_uptime},
@@ -280,55 +273,7 @@ static const api_command_t api_commands[] =
 
 };
 
-static const uint32_t api_command_count =
+const uint32_t api_command_count =
     sizeof(api_commands) / sizeof(api_commands[0]);
 
 // Поиск команды и выполнение обработчика
-void api_handle(const command_t *command)
-{
-    if (command == NULL)
-    {
-        return;
-    }
-
-    if (command->truncated)
-    {
-        printf("error: command longer than 63 characters or 4 arguments\n");
-        return;
-    }
-
-    if (command->name == NULL)
-    {
-        return;
-    }
-
-    if (strcmp(command->name, "help") == 0)
-    {
-        printf("%-16s %s\n", "help", "list of commands");
-
-        for (uint32_t i = 0; i < api_command_count; i++)
-        {
-            printf("%-16s %s\n",
-                   api_commands[i].name,
-                   api_commands[i].help);
-        }
-
-        return;
-    }
-
-    for (uint32_t i = 0; i < api_command_count; i++)
-    {
-        if (strcmp(command->name, api_commands[i].name) == 0)
-        {
-            if (api_commands[i].callback != NULL)
-            {
-                api_commands[i].callback(command);
-            }
-
-            return;
-        }
-    }
-
-    printf("error: unknown command '%s', try help\n",
-           command->name);
-}

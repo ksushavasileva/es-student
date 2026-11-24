@@ -1,9 +1,7 @@
 
-#include "led-task.h"
+#include "led-task/led-task.h"
+#include "platform/platform.h"
 #include "systime/systime.h"
-
-#include "pico/stdlib.h"
-
 #define LED_BLINK_PERIOD_MS 1000
 
 static led_state_t led_state = LED_STATE_BLINK;
@@ -19,14 +17,11 @@ static bool led_is_on = false;
 static void led_output_set(bool on)
 {
     led_is_on = on;
-    gpio_put(PICO_DEFAULT_LED_PIN, on);
+    platform_led_set(on);
 }
 
 void led_task_init(void)
 {
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-
     led_period_ms = LED_BLINK_PERIOD_MS;
 
     led_output_set(false);
