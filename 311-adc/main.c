@@ -4,6 +4,7 @@
 #include "led-task/led-task.h"
 #include "button-task/button-task.h"
 #include "pi-task/pi-task.h"
+#include "telemetry-task/telemetry-task.h"
 #include "profiling/profiling.h"
 #include "logging/log.h"
 #include "firmware.h"
@@ -14,7 +15,8 @@ typedef enum
     STOPWATCH_COMMAND,
     STOPWATCH_LED,
     STOPWATCH_BUTTON,
-    STOPWATCH_PI
+    STOPWATCH_PI,
+    STOPWATCH_TELEMETRY
 } stopwatch_id_t;
 
 int main(void)
@@ -26,6 +28,7 @@ int main(void)
     led_task_init();
     button_task_init(led_task_next_state);
     pi_task_init();
+    telemetry_task_init(api_print_telemetry);
     stdio_text_protocol_init();
 
     profiling_stopwatch_init(STOPWATCH_LOOP, "loop");
@@ -34,6 +37,7 @@ int main(void)
     profiling_stopwatch_init(STOPWATCH_BUTTON, "button");
     profiling_stopwatch_init(STOPWATCH_PI, "pi");
 
+    profiling_stopwatch_init(STOPWATCH_TELEMETRY, "telemetry");
     while (1)
     {
         profiling_start(STOPWATCH_LOOP);
@@ -57,6 +61,10 @@ int main(void)
         profiling_start(STOPWATCH_PI);
         pi_task_handle();
         profiling_stop(STOPWATCH_PI);
+
+        profiling_start(STOPWATCH_TELEMETRY);
+        telemetry_task_handle();
+        profiling_stop(STOPWATCH_TELEMETRY);
 
         profiling_stop(STOPWATCH_LOOP);
     }
