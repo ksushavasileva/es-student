@@ -1,3 +1,4 @@
+#include "systime/systime.h"
 
 #include "button-task.h"
 
@@ -30,7 +31,7 @@ void button_task_init(void)
     gpio_pull_up(BUTTON_PIN);
 
     button_state = BUTTON_STATE_RELEASED;
-    change_time_us = time_us_64();
+    change_time_us = systime_us();
     press_count = 0;
 }
 
@@ -40,7 +41,7 @@ void button_task_handle(void)
     // 0 — нажата, 1 — отпущена
     bool pressed = !gpio_get(BUTTON_PIN);
 
-    uint64_t now_us = time_us_64();
+    uint64_t now_us = systime_us();
 
     switch (button_state)
     {

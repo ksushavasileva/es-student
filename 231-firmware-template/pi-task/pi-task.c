@@ -1,3 +1,4 @@
+#include "systime/systime.h"
 #include "pi-task.h"
 
 #include "pico/stdlib.h"
@@ -44,7 +45,7 @@ bool pi_task_start(uint32_t terms)
     pi_sign = 1.0;
     pi_value = 0.0;
     pi_elapsed_us = 0;
-    pi_start_us = time_us_64();
+    pi_start_us = systime_us();
 
     pi_state = PI_STATE_RUNNING;
     return true;
@@ -75,7 +76,7 @@ void pi_task_handle(void)
     if (pi_k == pi_terms)
     {
         pi_value = 4.0 * pi_sum;
-        pi_elapsed_us = time_us_64() - pi_start_us;
+        pi_elapsed_us = systime_us() - pi_start_us;
         pi_state = PI_STATE_DONE;
     }
 }

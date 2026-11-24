@@ -1,5 +1,5 @@
 
-#include "stdio-text-protocol.h"
+#include "stdio-text-protocol/stdio-text-protocol.h"
 
 #include <stddef.h>
 #include <stdio.h>

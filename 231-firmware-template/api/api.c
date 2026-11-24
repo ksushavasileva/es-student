@@ -1,3 +1,5 @@
+#include "systime/systime.h"
+#include "firmware.h"
 #include "led-task.h"
 #include "api.h"
 #include "button-task.h"
@@ -8,11 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "pico/stdlib.h"
-
-#include "device.h"
-#include "profiling.h"
+#include "device/device.h"
+#include "profiling/profiling.h"
 #include "pi-task.h"
 
 typedef void (*api_callback_t)(const command_t *command);
@@ -57,7 +56,7 @@ static void cmd_info(const command_t *command)
     device_info_t info;
     device_get_info(&info);
 
-    printf("firmware: %s\n", DEVICE_NAME);
+    printf("firmware: %s\n", FIRMWARE_NAME);
     printf("version: %s\n", FIRMWARE_VERSION);
     printf("board: %s\n", info.board);
     printf("serial: %s\n", info.serial);
@@ -76,7 +75,7 @@ static void cmd_uptime(const command_t *command)
     (void)command;
 
     printf("uptime: %llu ms\n",
-           (unsigned long long)(time_us_64() / 1000));
+           (unsigned long long)(systime_ms()));
 }
 
 // Вычисление числа пи
@@ -140,6 +139,12 @@ static void cmd_pi(const command_t *command)
 
 static void cmd_profiling(const command_t *command)
 {
+#if !PROFILING_ENABLED
+    (void)command;
+    printf("profiling is disabled in this build\n");
+    return;
+#endif
+
     (void)command;
 
     profiling_result_t result;

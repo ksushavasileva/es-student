@@ -11,37 +11,35 @@ project(231_firmware_template)
 pico_sdk_init()
 
 add_compile_options(-Wall)
+# Общие библиотеки лежат рядом с проектом, в корне репозитория.
+add_subdirectory(../libs ${CMAKE_BINARY_DIR}/libs)
+
+# 0 — полностью убрать измерения из собранной прошивки.
+target_compile_definitions(profiling PUBLIC PROFILING_ENABLED=1)
+
+
+
 add_executable(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/main.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/api/api.c
     ${CMAKE_CURRENT_SOURCE_DIR}/led-task/led-task.c
     ${CMAKE_CURRENT_SOURCE_DIR}/button-task/button-task.c
     ${CMAKE_CURRENT_SOURCE_DIR}/pi-task/pi-task.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/logging/log.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/device/device.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/profiling/profiling.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/stdio-text-protocol/stdio-text-protocol.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/api/api.c
 )
-
-
-
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME} PRIVATE
     pico_stdlib
-    pico_unique_id
+    stdio_text_protocol
+    systime
+    profiling
+    device
+    logging
 )
-
-
-
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/led-task
     ${CMAKE_CURRENT_SOURCE_DIR}/button-task
     ${CMAKE_CURRENT_SOURCE_DIR}/pi-task
-    ${CMAKE_CURRENT_SOURCE_DIR}/logging
-    ${CMAKE_CURRENT_SOURCE_DIR}/device
-    ${CMAKE_CURRENT_SOURCE_DIR}/profiling
-    ${CMAKE_CURRENT_SOURCE_DIR}/stdio-text-protocol
-    ${CMAKE_CURRENT_SOURCE_DIR}/api
 )
 
 

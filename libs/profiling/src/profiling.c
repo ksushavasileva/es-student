@@ -1,4 +1,4 @@
-#include "profiling.h"
+#include "profiling/profiling.h"
 
 #include <stddef.h>
 
@@ -33,6 +33,7 @@ void profiling_stopwatch_init(uint32_t id, const char *name)
     sw->initialized = true;
 }
 
+#if PROFILING_ENABLED
 void profiling_start(uint32_t id)
 {
     if (id >= PROFILING_STOPWATCH_COUNT ||
@@ -43,7 +44,10 @@ void profiling_start(uint32_t id)
 
     stopwatches[id].started_us = time_us_32();
 }
+#endif
 
+
+#if PROFILING_ENABLED
 void profiling_stop(uint32_t id)
 {
     if (id >= PROFILING_STOPWATCH_COUNT ||
@@ -65,6 +69,8 @@ void profiling_stop(uint32_t id)
         sw->max_us = elapsed_us;
     }
 }
+#endif
+
 
 bool profiling_get(uint32_t id, profiling_result_t *result)
 {

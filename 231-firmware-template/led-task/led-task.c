@@ -1,5 +1,6 @@
 
 #include "led-task.h"
+#include "systime/systime.h"
 
 #include "pico/stdlib.h"
 
@@ -13,28 +14,7 @@ static bool led_is_on = false;
 // Проверяем, прошёл ли заданный интервал.
 // Следующий момент отсчитываем от предыдущего,
 // чтобы мигание не сдвигалось со временем.
-static bool period_elapsed(uint64_t *last_us, uint64_t period_us)
-{
-    uint64_t now_us = time_us_64();
 
-    if (now_us - *last_us < period_us)
-    {
-        return false;
-    }
-
-    // Если отстали больше чем на период,
-    // не пытаемся догонять пропущенные переключения.
-    if (now_us - *last_us >= 2 * period_us)
-    {
-        *last_us = now_us;
-    }
-    else
-    {
-        *last_us += period_us;
-    }
-
-    return true;
-}
 
 static void led_output_set(bool on)
 {
@@ -71,7 +51,7 @@ void led_task_set_state(led_state_t state)
         case LED_STATE_BLINK:
             // Первое переключение происходит сразу.
             led_output_set(!led_is_on);
-            last_toggle_us = time_us_64();
+            last_toggle_us = systime_us();
             break;
     }
 }
@@ -91,7 +71,7 @@ bool led_task_set_period_ms(uint32_t period_ms)
     led_period_ms = period_ms;
 
     // Новую временную сетку начинаем с текущего момента.
-    last_toggle_us = time_us_64();
+    last_toggle_us = systime_us();
 
     return true;
 }
@@ -118,7 +98,7 @@ void led_task_handle(void)
             uint64_t half_period_us =
                 (uint64_t)led_period_ms * 1000 / 2;
 
-            if (period_elapsed(&last_toggle_us, half_period_us))
+            if (systime_period_elapsed(&last_toggle_us, half_period_us))
             {
                 led_output_set(!led_is_on);
             }
