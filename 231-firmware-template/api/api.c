@@ -13,6 +13,7 @@
 
 #include "device.h"
 #include "profiling.h"
+#include "pi-task.h"
 
 typedef void (*api_callback_t)(const command_t *command);
 
@@ -66,23 +67,8 @@ static void cmd_uptime(const command_t *command)
 }
 
 // Вычисление числа пи
-static double calc_pi(uint32_t terms)
-{
-    double sum = 0.0;
-    double sign = 1.0;
-
-    for (uint32_t k = 0; k < terms; k++)
-    {
-        sum += sign / (2.0 * (double)k + 1.0);
-        sign = -sign;
-    }
-
-    return 4.0 * sum;
-}
-
-static volatile double pi_result;
-
-static void cmd_calc_pi(const command_t *command)
+// ????????? ????????????? ?????? ????? pi.
+static void cmd_pi_start(const command_t *command)
 {
     uint32_t terms = 1000000;
 
@@ -90,7 +76,7 @@ static void cmd_calc_pi(const command_t *command)
         (command->argc == 1 &&
          !parse_u32(command->argv[0], &terms)))
     {
-        printf("error: usage calc_pi [terms]\n");
+        printf("error: usage pi_start [terms]\n");
         return;
     }
 
@@ -100,19 +86,45 @@ static void cmd_calc_pi(const command_t *command)
         return;
     }
 
-    uint64_t start_us = time_us_64();
+    if (!pi_task_start(terms))
+    {
+        printf("error: pi is busy\n");
+        return;
+    }
 
-    pi_result = calc_pi(terms);
-
-    uint64_t spent_us = time_us_64() - start_us;
-
-    printf("pi: %.9f\n", (double)pi_result);
-
-    printf("time: %llu ms\n",
-           (unsigned long long)(spent_us / 1000));
+    printf("pi: started, %u terms\n", (unsigned)terms);
 }
 
-// Среднее и максимальное время итерации
+// ???????? ????????? ??? ????????? ???????.
+static void cmd_pi(const command_t *command)
+{
+    (void)command;
+
+    pi_state_t state = pi_task_get_state();
+
+    if (state == PI_STATE_NOT_STARTED)
+    {
+        printf("pi: not started\n");
+        return;
+    }
+
+    if (state == PI_STATE_RUNNING)
+    {
+        printf("pi: running\n");
+        return;
+    }
+
+    double value = 0.0;
+    uint64_t elapsed_ms = 0;
+
+    if (pi_task_get_result(&value, &elapsed_ms))
+    {
+        printf("pi: %.9f in %llu ms\n",
+               value,
+               (unsigned long long)elapsed_ms);
+    }
+}
+
 static void cmd_main_time_exec(const command_t *command)
 {
     (void)command;
@@ -223,7 +235,8 @@ static const api_command_t api_commands[] =
 {
     {"info", "device passport", cmd_info},
     {"uptime", "time since reset", cmd_uptime},
-    {"calc_pi", "calculate pi: calc_pi [terms]", cmd_calc_pi},
+    {"pi_start", "start pi calculation: pi_start [terms]", cmd_pi_start},
+    {"pi", "pi calculation result", cmd_pi},
     {"main_time_exec", "superloop iteration: average and maximum", cmd_main_time_exec},
     {"main_time_reset", "reset maximum iteration", cmd_main_time_reset},
 
