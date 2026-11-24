@@ -12,3 +12,6 @@ float platform_voltage_read(void);
 
 // Температура кристалла RP2040 по встроенному датчику, градусы Цельсия.
 float platform_temp_read(void);
+
+// Включить / выключить заряд RC-цепи через GP22.
+void platform_charge_set(bool on);

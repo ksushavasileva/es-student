@@ -1,5 +1,8 @@
 #include <stdbool.h>
 #include "platform/platform.h"
+// Вывод заряда RC-цепи: GP22 (физическая ножка 29).
+#define CHARGE_PIN 22
+
 #include "hardware/adc.h"
 
 // Вход АЦП: вывод GP26, канал 0.
@@ -33,6 +36,11 @@ void platform_init(void)
     adc_gpio_init(ADC_PIN);
 
     adc_set_temp_sensor_enabled(true);
+
+    // При запуске конденсатор остаётся разряженным.
+    gpio_init(CHARGE_PIN);
+    gpio_put(CHARGE_PIN, false);
+    gpio_set_dir(CHARGE_PIN, GPIO_OUT);
 }
 
 void platform_led_set(bool on)
@@ -59,4 +67,10 @@ float platform_temp_read(void)
     adc_select_input(ADC_TEMP_CHANNEL);
     float voltage_v = adc_read() * ADC_VREF_V / ADC_LEVELS;
     return 27.0f - (voltage_v - 0.706f) / 0.001721f;
+}
+
+// Подаёт 3.3 В на резистор или заземляет его конец.
+void platform_charge_set(bool on)
+{
+    gpio_put(CHARGE_PIN, on);
 }
